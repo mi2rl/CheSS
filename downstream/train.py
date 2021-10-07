@@ -54,9 +54,12 @@ def train(args, epoch, loader, val_loader, model, optimizer, writer ,scheduler):
         criterion = nn.BCEWithLogitsLoss()
         loss = criterion(outputs, labels)
 
-        _, preds = torch.max(outputs.data, 1)        
+        outputs = torch.sigmoid(outputs)
+        outputs[outputs >= 0.5] = 1
+        outputs[outputs < 0.5] = 0    
+           
         total += labels.size(0)
-        correct += torch.sum(preds == labels.data).item()
+        correct += torch.sum(outputs == labels.data).item()
         
         losses.update(loss.item(), imgs[0].size(0))
         batch_time.update(time.time() - end)
@@ -96,9 +99,12 @@ def train(args, epoch, loader, val_loader, model, optimizer, writer ,scheduler):
             criterion = nn.BCEWithLogitsLoss()
             loss = criterion(outputs, labels)
 
-            _, preds = torch.max(outputs.data, 1)        
+            outputs = torch.sigmoid(outputs)
+            outputs[outputs >= 0.5] = 1
+            outputs[outputs < 0.5] = 0
+
             val_total += labels.size(0)
-            val_correct += torch.sum(preds == labels.data).item()
+            val_correct += torch.sum(outputs == labels.data).item()
             
             val_losses.update(loss.item(), imgs[0].size(0))
             val_batch_time.update(time.time() - end)
@@ -127,10 +133,12 @@ def test(args, epoch, loader, model, writer):
             labels = labels.cuda()
             
             outputs = model(imgs)
-            _, preds = torch.max(outputs.data, 1)
+            outputs = torch.sigmoid(outputs)
+            outputs[outputs >= 0.5] = 1
+            outputs[outputs < 0.5] = 0
 
             total += labels.size(0)
-            correct += torch.sum(preds == labels.data).item()
+            correct += torch.sum(outputs == labels.data).item()
         
     test_acc = 100.*correct/total
     print('[*] Test Acc: {:5f}'.format(test_acc))

@@ -24,8 +24,31 @@ import time
 import pathlib
 from datetime import datetime
 import cv2
+from sklearn.metrics import roc_auc_score
 
-def evaluate(args, loader, model):
+def compute_AUCs(gt, pred , num_classes , class_list):
+
+    """
+    https://github.com/arnoweng/CheXNet/blob/master/model.py
+    Computes Area Under the Curve (AUC) from prediction scores.
+    Args:
+        gt: Pytorch tensor on GPU, shape = [n_samples, n_classes]
+          true binary labels.
+        pred: Pytorch tensor on GPU, shape = [n_samples, n_classes]
+          can either be probability estimates of the positive class,
+          confidence values, or binary decisions.
+    Returns:
+        List of AUROCs of all classes.
+    """
+    AUROCs = []
+    gt_np = gt.cpu().numpy()
+    pred_np = pred.cpu().numpy()
+    for i in range(N_CLASSES):
+        AUROCs.append(roc_auc_score(gt_np[:, i], pred_np[:, i]))
+    return AUROCs
+
+
+def evaluate(args, loader, model, num_classes , class_list):
     model.eval()
     
     correct = 0
@@ -40,26 +63,35 @@ def evaluate(args, loader, model):
         labels = labels.cuda()
         
         outputs = model(imgs)
-        _, preds = torch.max(outputs.data, 1)
+        outputs = torch.sigmoid(outputs)
+        outputs[outputs >= 0.5] = 1
+        outputs[outputs < 0.5] = 0
 
         total += labels.size(0)
-        correct += torch.sum(preds == labels.data).item()
+        correct += torch.sum(outputs == labels.data).item()
         
         ## For evaluation
+        ## have to modify
         overall_logits += [outputs[i,1].cpu().detach().item() for i in range(labels.shape[0])]
         overall_preds += preds.cpu().detach().numpy().tolist()
         overall_gts += labels.cpu().detach().numpy().tolist()
 
     print('[*] Test Acc: {:5f}'.format(100.*correct/total))
-    get_mertrix(overall_gts, overall_preds, overall_logits, args.log_dir, args.class_list)
-    get_metric(overall_gts, overall_preds, overall_logits, args.log_dir, args.class_list)
+    get_mertrix(overall_gts, overall_preds, overall_logits, args.log_dir, class_list)
+    get_metric(overall_gts, overall_preds, overall_logits, args.log_dir, class_list)
+
+    AUROCs = compute_AUCs(gt, pred, num_classes , class_list)
+    AUROC_avg = np.array(AUROCs).mean()
+    print('The average AUROC is {AUROC_avg:.3f}'.format(AUROC_avg=AUROC_avg))
+    for i in range(num_classes):
+        print('The AUROC of {} is {}'.format(class_list[i], AUROCs[i]))
 
 def main(args):
     ##### Initial Settings
     csv_data = pd.read_csv(args.csv_file)
     class_list = csv_data.keys().tolist()[5:] # warning
-    
-    downstream = '{}_{}_class'.format(args.downstream_name, len(class_list))
+    num_classes = args.num_class
+    downstream = '{}_{}_class'.format(args.downstream_name, num_classes)
 
     print('\n[*****] ', downstream)
     print('[*] using {} bit images'.format(args.bit))
@@ -127,7 +159,7 @@ def main(args):
     
     ##### Train & Test
     print('[*] start a test')
-    evaluate(args, test_loader, model)
+    evaluate(args, test_loader, model, num_classes , class_list)
         
 if __name__ == '__main__':
     argv = parse_arguments(sys.argv[1:])

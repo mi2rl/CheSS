@@ -27,6 +27,10 @@ class DiseaseDataset(Dataset):
         with open(input_path, "r") as f:
             self.samples = json.load(f)
         
+        """
+        augmentation strategy 
+        """
+
         if mode == 'train':
             if args.aug == True:
                 self.transform = A.Compose([
