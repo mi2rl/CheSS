@@ -1,0 +1,34 @@
+# Full requirements for developments
+-r requirements-min.txt
+pytorch-ignite==0.4.4
+gdown>=3.6.4
+scipy
+itk>=5.0
+nibabel
+pillow
+tensorboard
+scikit-image>=0.14.2
+tqdm>=4.47.0
+lmdb
+flake8>=3.8.1
+flake8-bugbear
+flake8-comprehensions
+flake8-executable
+flake8-pyi
+mccabe
+pep8-naming
+pycodestyle
+pyflakes
+black
+isort
+pytype>=2020.6.1
+mypy>=0.790
+ninja
+torchvision
+psutil
+Sphinx==3.3.0
+recommonmark==0.6.0
+sphinx-autodoc-typehints==1.11.1
+sphinx-rtd-theme==0.5.0
+cucim==0.18.1
+openslide-python==1.1.2

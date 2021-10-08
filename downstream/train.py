@@ -29,9 +29,9 @@ from tensorboardX import SummaryWriter
 def calculate_parameters(model):
     return sum(param.numel() for param in model.parameters())/1000000.0
 
-def train(args, epoch, loader, val_loader, model, optimizer, writer ,scheduler):
-    model.train()
+def train(args, epoch, loader, val_loader, model, device, optimizer, writer ,scheduler):
 
+    model.train()
     batch_time = AverageMeter('Time', ':6.3f')
     losses = AverageMeter('Loss', ':.4f')
     progress = ProgressMeter(
@@ -41,12 +41,12 @@ def train(args, epoch, loader, val_loader, model, optimizer, writer ,scheduler):
 
     correct = 0
     total = 0
-    
+    overall_logits = []
     end = time.time()
     running_loss = 0
     for iter_, (imgs, labels) in enumerate(iter(loader)):
-        imgs = imgs.cuda()
-        labels = labels.cuda()
+        imgs = imgs.to(device)
+        labels = labels.to(device)
         
         outputs = model(imgs)
 
@@ -55,11 +55,13 @@ def train(args, epoch, loader, val_loader, model, optimizer, writer ,scheduler):
         loss = criterion(outputs, labels)
 
         outputs = torch.sigmoid(outputs)
-        outputs[outputs >= 0.5] = 1
-        outputs[outputs < 0.5] = 0    
-           
-        total += labels.size(0)
-        correct += torch.sum(outputs == labels.data).item()
+        outputs_preds = outputs.clone()
+        overall_logits += outputs.cpu().detach().numpy().tolist()
+
+        outputs_preds[outputs_preds >= 0.5] = 1
+        outputs_preds[outputs_preds < 0.5] = 0
+        total += labels.size(0) * labels.size(1)
+        correct += torch.sum(outputs_preds == labels.data).item()
         
         losses.update(loss.item(), imgs[0].size(0))
         batch_time.update(time.time() - end)
@@ -76,23 +78,29 @@ def train(args, epoch, loader, val_loader, model, optimizer, writer ,scheduler):
             writer.add_scalar('train_loss', running_loss/iter_, (epoch*len(loader))+iter_)
             writer.add_scalar('train_acc', 100.*correct/total, (epoch*len(loader))+iter_)
     
+    print('[*] Valid Phase')
     model.eval()
+
     val_batch_time = AverageMeter('Time', ':6.3f')
     val_losses = AverageMeter('Loss', ':.4f')
     progress = ProgressMeter(
         len(loader),
         [val_batch_time, val_losses],
         prefix='Epoch: [{}]'.format(epoch))
+
     val_correct = 0
     val_total = 0
-    
-    end = time.time()
+    overall_logits = []
     val_running_loss = 0
+
+    end = time.time()
+
     with torch.no_grad():
         for iter_, (imgs, labels) in enumerate(iter(val_loader)):
-            imgs = imgs.cuda()
-            labels = labels.cuda()
             
+            imgs = imgs.to(device)
+            labels = labels.to(device)
+
             outputs = model(imgs)
 
             # criterion = nn.CrossEntropyLoss()
@@ -100,11 +108,13 @@ def train(args, epoch, loader, val_loader, model, optimizer, writer ,scheduler):
             loss = criterion(outputs, labels)
 
             outputs = torch.sigmoid(outputs)
-            outputs[outputs >= 0.5] = 1
-            outputs[outputs < 0.5] = 0
+            outputs_preds = outputs.clone()
+            overall_logits += outputs.cpu().detach().numpy().tolist()
 
-            val_total += labels.size(0)
-            val_correct += torch.sum(outputs == labels.data).item()
+            outputs_preds[outputs_preds >= 0.5] = 1
+            outputs_preds[outputs_preds < 0.5] = 0
+            val_total += labels.size(0) * labels.size(1)
+            val_correct += torch.sum(outputs_preds == labels.data).item()
             
             val_losses.update(loss.item(), imgs[0].size(0))
             val_batch_time.update(time.time() - end)
@@ -120,25 +130,29 @@ def train(args, epoch, loader, val_loader, model, optimizer, writer ,scheduler):
 
 
 
-def test(args, epoch, loader, model, writer):
+def test(args, epoch, loader, model, device, writer):
+
     print('[*] Test Phase')
     model.eval()
-
     correct = 0
     total = 0
+    overall_logits = []
+    overall_preds = []
+    overall_gts = []
 
     with torch.no_grad():
         for iter_, (imgs, labels) in enumerate(iter(loader)):
-            imgs = imgs.cuda()
-            labels = labels.cuda()
-            
+            imgs = imgs.to(device)
+            labels = labels.to(device)
             outputs = model(imgs)
             outputs = torch.sigmoid(outputs)
-            outputs[outputs >= 0.5] = 1
-            outputs[outputs < 0.5] = 0
+            outputs_preds = outputs.clone()
+            overall_logits += outputs.cpu().detach().numpy().tolist()
 
-            total += labels.size(0)
-            correct += torch.sum(outputs == labels.data).item()
+            outputs_preds[outputs_preds >= 0.5] = 1
+            outputs_preds[outputs_preds < 0.5] = 0
+            total += labels.size(0) * labels.size(1)
+            correct += torch.sum(outputs_preds == labels.data).item()
         
     test_acc = 100.*correct/total
     print('[*] Test Acc: {:5f}'.format(test_acc))
@@ -150,9 +164,10 @@ def test(args, epoch, loader, model, writer):
 def main(args):
     ##### Initial Settings
     csv_data = pd.read_csv(args.csv_file)
-    class_list = csv_data.keys().tolist()[5:] # need to modify
-    
-    downstream = '{}_{}_class'.format(args.downstream_name, len(class_list))
+    class_list = csv_data.keys().tolist()[5:] # warning
+    print("[*] class list : " , class_list)
+    num_classes = args.num_class
+    downstream = '{}_{}_class'.format(args.downstream_name, num_classes)
 
     print('\n[*****] ', downstream)
     print('[*] using {} bit images'.format(args.bit))
@@ -165,8 +180,8 @@ def main(args):
     pathlib.Path(args.log_dir).mkdir(parents=True, exist_ok=True)
     pathlib.Path(args.checkpoint_dir).mkdir(parents=True, exist_ok=True)
 
-    folder_name = args.message
-    
+    folder_name = '{}_{}_{}_bit'.format(args.message, downstream, args.bit)
+
     args.log_dir = os.path.join(args.log_dir, folder_name)
     args.checkpoint_dir = os.path.join(args.checkpoint_dir, folder_name)
 
@@ -191,7 +206,7 @@ def main(args):
 
     # select network
     print('[*] build network... backbone: {}'.format(args.backbone))
-    if args.backbone == 'resnet':
+    if args.backbone == 'resnet50':
         model = resnet50(num_classes=args.num_class)
     elif args.backbone == 'vgg':
         model = vgg16(num_classes=args.num_class)
@@ -249,8 +264,8 @@ def main(args):
     best_model_path = os.path.join(args.checkpoint_dir,'best.pth.tar')
 
     for epoch in range(args.start_epoch, args.epochs):
-        train(args, epoch, train_loader, val_loader, model, optimizer, writer ,scheduler)
-        acc = test(args, epoch, test_loader, model, writer)
+        train(args, epoch, train_loader, val_loader, model, device, optimizer, writer ,scheduler)
+        acc = test(args, epoch, test_loader, model, device, writer)
         
         save_name = '{}.pth.tar'.format(epoch)
         save_name = os.path.join(args.checkpoint_dir, save_name)

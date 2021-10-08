@@ -75,7 +75,7 @@ class DiseaseDataset(Dataset):
     def __getitem__(self, idx):
         imgs = self.transform(image=self._preprocessing(self.samples['imgs'][idx] , 
                                 self.bits))['image']
-        labels = self.samples['labels'][idx]
+        labels = np.array(self.samples['labels'][idx]).astype(np.float32)
         return imgs, labels
             
     def __len__(self):
@@ -83,8 +83,8 @@ class DiseaseDataset(Dataset):
     
     def _preprocessing(self, path , bits):
         if bits == 8:
-            img = cv2.imread(path)
-            img = _min_max_scaling(img)
+            img = np.array(Image.open(path))
+            img = self._min_max_scaling(img)
         else:
             img = np.load(path)
         img = self._standardization(img)
