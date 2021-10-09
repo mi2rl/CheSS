@@ -30,15 +30,11 @@ from datetime import datetime
 import cv2
 import warnings
 
+fn_tonumpy = lambda x : x.to('cpu').detach().numpy().transpose(0,2,3,1)
 
 def evaluate_cam(args, loader, model, device, num_classes , class_list, args.log_dir):
 
     model.eval()
-    correct = 0
-    total = 0
-    overall_logits = []
-    overall_preds = []
-    overall_gts = []
     save_dir = args.log_dir
 
     for iter_, (imgs, labels) in enumerate(iter(loader)):
