@@ -265,6 +265,10 @@ def main(args):
 
     for epoch in range(args.start_epoch, args.epochs):
         train(args, epoch, train_loader, val_loader, model, device, optimizer, writer ,scheduler)
+        
+        '''
+        have to modify best loss
+        '''
         acc = test(args, epoch, test_loader, model, device, writer)
         
         save_name = '{}.pth.tar'.format(epoch)
