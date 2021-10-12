@@ -7,8 +7,9 @@ import numpy as np
 from config import parse_arguments
 from datasets import DiseaseDataset
 from models.resnet import resnet50, resnet152
-from models.vgg import vgg16,vgg16_bn
-from models.densenet import densenet121
+from models.vgg import vgg16
+from models.inception_v3 import Inception3
+
 import pandas as pd
 from utils_folder.utils import AverageMeter, ProgressMeter
 from utils_folder.eval_metric import *

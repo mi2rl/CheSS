@@ -13,7 +13,7 @@ from datasets import DiseaseDataset
 
 from models.resnet import resnet50, resnet152
 from models.vgg import vgg16
-from models.densenet import densenet121 ,densenet169
+from models.inception_v3 import Inception3
 
 from utils_folder.utils import AverageMeter, ProgressMeter, save_model
 from evaluation import evaluate
@@ -50,10 +50,11 @@ def train(args, epoch, loader, val_loader, model, device, optimizer, writer ,sch
         
         outputs = model(imgs)
 
-        # criterion = nn.CrossEntropyLoss()
         criterion = nn.BCEWithLogitsLoss()
         loss = criterion(outputs, labels)
-
+        '''
+        have to modify multi label acc
+        '''
         outputs = torch.sigmoid(outputs)
         outputs_preds = outputs.clone()
         overall_logits += outputs.cpu().detach().numpy().tolist()
@@ -103,10 +104,11 @@ def train(args, epoch, loader, val_loader, model, device, optimizer, writer ,sch
 
             outputs = model(imgs)
 
-            # criterion = nn.CrossEntropyLoss()
             criterion = nn.BCEWithLogitsLoss()
             loss = criterion(outputs, labels)
-
+            '''
+            have to modify multi label acc
+            '''
             outputs = torch.sigmoid(outputs)
             outputs_preds = outputs.clone()
             overall_logits += outputs.cpu().detach().numpy().tolist()
