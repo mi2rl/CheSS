@@ -25,6 +25,8 @@ import torchvision.models as models
 import moco.loader
 import moco.builder
 from moco.resnet import resnet50
+import albumentations as A
+from albumentations.pytorch import ToTensorV2
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
 parser.add_argument('data', metavar='DIR',
@@ -239,7 +241,7 @@ def main_worker(gpu, ngpus_per_node, args):
     normalize = transforms.Normalize(mean=[args.mean],
                                      std=[args.std])
     '''
-    need to modify
+    Albumentations
     '''
     if args.aug_plus:
         # MoCo v2's aug: similar to SimCLR https://arxiv.org/abs/2002.05709
@@ -255,13 +257,29 @@ def main_worker(gpu, ngpus_per_node, args):
         ]
     else:
         # MoCo v1's aug: the same as InstDisc https://arxiv.org/abs/1805.01978
-        augmentation = [
-            transforms.RandomResizedCrop(args.image_size, scale=(0.2, 1.)),
-            transforms.RandomGrayscale(p=0.2),
-            transforms.RandomHorizontalFlip(),
-            transforms.ToTensor(),
-            normalize
-        ]
+        augmentation = A.Compose([
+                A.Resize(512, 512),
+                A.OneOf([
+                    A.MedianBlur(blur_limit=3, p=0.1),
+                    A.MotionBlur(p=0.2),
+                    A.IAASharpen(p=0.2),
+                    ], p=0.2),
+                A.ShiftScaleRotate(shift_limit=0.0625, scale_limit=0.2, rotate_limit=10, p=0.2),
+                A.OneOf([
+                    A.OpticalDistortion(p=0.3),
+                    ], p=0.2),
+                A.OneOf([
+                    A.CLAHE(clip_limit=4.0),
+                    A.Equalize(),
+                    ], p=0.2),
+                A.OneOf([
+                    A.GaussNoise(p=0.2),
+                    A.MultiplicativeNoise(p=0.2),
+                    ], p=0.2),
+                A.HueSaturationValue(hue_shift_limit=0, sat_shift_limit=0, val_shift_limit=0.1, p=0.3),
+                A.Normalize(mean=(args.mean), std=(args.std)),
+                ToTensorV2(),
+            ])
 
     train_dataset = datasets.ImageFolder(
         traindir,
