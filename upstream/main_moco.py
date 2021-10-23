@@ -58,7 +58,7 @@ parser.add_argument('-p', '--print-freq', default=10, type=int,
                     metavar='N', help='print frequency (default: 10)')
 parser.add_argument('--resume', default='', type=str, metavar='PATH',
                     help='path to latest checkpoint (default: none)')
-parser.add_argument('--world-size', default=1, type=int,
+parser.add_argument('--world-size', default=-1, type=int,
                     help='number of nodes for distributed training')
 parser.add_argument('--rank', default=-1, type=int,
                     help='node rank for distributed training')
@@ -95,10 +95,14 @@ parser.add_argument('--cos', action='store_true',
                     help='use cosine lr schedule')
                     
 ## MI2RLNet v2
-parser.add_argument('--labmda_1', default=1.0, type=float)
-parser.add_argument('--labmda_2', default=1.0, type=float)
-parser.add_argument('--labmda_3', default=1.0, type=float)
+parser.add_argument('--lambda_1', default=1.0, type=float)
+parser.add_argument('--lambda_2', default=1.0, type=float)
+parser.add_argument('--lambda_3', default=1.0, type=float)
 parser.add_argument('--image_size', default=512, type=int)
+parser.add_argument('--mean', default=0.2, type=float)
+parser.add_argument('--std', default=0.4, type=float)
+parser.add_argument('--bit', default='png', type=str)
+parser.add_argument('--preprocess', default='clipped', type=str)
 
 
 def main():
@@ -159,8 +163,10 @@ def main_worker(gpu, ngpus_per_node, args):
                                 world_size=args.world_size, rank=args.rank)
     # create model
     print("=> creating model '{}'".format(args.arch))
+    '''
+    our model add
+    '''
     base_encoder = resnet50
-
     model = moco.builder.MoCo(
         base_encoder,
         args.moco_dim, args.moco_k, 
@@ -225,12 +231,13 @@ def main_worker(gpu, ngpus_per_node, args):
     cudnn.benchmark = True
 
     # Data loading code
-    traindir = os.path.join(args.data, 'train')
+    traindir = os.path.join(args.data, args.preprocess, args.bit, args.image_size)
+
     '''
     need to modify
     '''
-    normalize = transforms.Normalize(mean=[0.2],
-                                     std=[0.4])
+    normalize = transforms.Normalize(mean=[args.mean],
+                                     std=[args.std])
     '''
     need to modify
     '''
@@ -258,7 +265,7 @@ def main_worker(gpu, ngpus_per_node, args):
 
     train_dataset = datasets.ImageFolder(
         traindir,
-        moco.loader.TwoCropsTransform(transforms.Compose(augmentation)))
+        moco.loader.TwoCropsTransform(transforms.Compose([transforms.Grayscale(), augmentation])))
 
     if args.distributed:
         train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
@@ -342,7 +349,7 @@ def train(train_loader, model, criterion, cos_sim ,criterion_L1, optimizer, epoc
 
         # compute gradient and do SGD step
 
-        overall_loss = args.labmda_1 * loss + args.labmda_2 * loss_1 + args.labmda_3 * loss_4
+        overall_loss = args.lambda_1 * loss + args.lambda_2 * loss_1 + args.lambda_3 * loss_4
         
         optimizer.zero_grad()
         overall_loss.backward()
