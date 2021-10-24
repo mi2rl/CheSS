@@ -105,6 +105,7 @@ parser.add_argument('--mean', default=0.2, type=float)
 parser.add_argument('--std', default=0.4, type=float)
 parser.add_argument('--bit', default='png', type=str)
 parser.add_argument('--preprocess', default='clipped', type=str)
+parser.add_argument('--vanilla_moco_loss', default=None, type=bool)
 
 
 def main():
@@ -241,7 +242,7 @@ def main_worker(gpu, ngpus_per_node, args):
     normalize = transforms.Normalize(mean=[args.mean],
                                      std=[args.std])
     '''
-    Albumentations
+    using Albumentations augmentation
     '''
     if args.aug_plus:
         # MoCo v2's aug: similar to SimCLR https://arxiv.org/abs/2002.05709
@@ -343,19 +344,21 @@ def train(train_loader, model, criterion, cos_sim ,criterion_L1, optimizer, epoc
         '''
         our loss source code
         '''
-        b_1, c_1, h_1, w_1 = lq_1.shape
-        _, c_4, h_4, w_4 = lk_1.shape
-        sim_matrix_1 = torch.zeros([b_1, h_1, w_1])
-        sim_matrix_4 = torch.zeros([b_1, h_4, w_4])
-        sim_matrix_zeros = torch.ones([b_1, h_1, w_1] ,requires_grad=True)
-        sim_matrix_one = torch.ones([b_1, h_4, w_4] ,requires_grad=True)
 
-        for i in range(b_1):
-            sim_matrix_1[i] = cos_sim(lq_1[i] ,lk_1[i])
-            sim_matrix_4[i] = cos_sim(lq_4[i] ,lk_4[i])
+        if args.vanilla_moco_loss is None:
+            b_1, c_1, h_1, w_1 = lq_1.shape
+            _, c_4, h_4, w_4 = lk_1.shape
+            sim_matrix_1 = torch.zeros([b_1, h_1, w_1])
+            sim_matrix_4 = torch.zeros([b_1, h_4, w_4])
+            sim_matrix_zeros = torch.ones([b_1, h_1, w_1] ,requires_grad=True)
+            sim_matrix_one = torch.ones([b_1, h_4, w_4] ,requires_grad=True)
 
-        loss_1 = criterion_L1(sim_matrix_zeros, sim_matrix_1)
-        loss_4 = criterion_L1(sim_matrix_one, sim_matrix_4)
+            for i in range(b_1):
+                sim_matrix_1[i] = cos_sim(lq_1[i] ,lk_1[i])
+                sim_matrix_4[i] = cos_sim(lq_4[i] ,lk_4[i])
+
+            loss_1 = criterion_L1(sim_matrix_zeros, sim_matrix_1)
+            loss_4 = criterion_L1(sim_matrix_one, sim_matrix_4)
 
         # acc1/acc5 are (K+1)-way contrast classifier accuracy
         # measure accuracy and record loss
@@ -366,9 +369,11 @@ def train(train_loader, model, criterion, cos_sim ,criterion_L1, optimizer, epoc
         top5.update(acc5[0], images[0].size(0))
 
         # compute gradient and do SGD step
+        if args.vanilla_moco_loss is None:
+            overall_loss = args.lambda_1 * loss + args.lambda_2 * loss_1 + args.lambda_3 * loss_4
+        else:
+            overall_loss = args.lambda_1 * loss
 
-        overall_loss = args.lambda_1 * loss + args.lambda_2 * loss_1 + args.lambda_3 * loss_4
-        
         optimizer.zero_grad()
         overall_loss.backward()
         optimizer.step()
