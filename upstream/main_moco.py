@@ -350,7 +350,7 @@ def train(train_loader, model, criterion, cos_sim ,criterion_L1, optimizer, epoc
             _, c_4, h_4, w_4 = lk_1.shape
             sim_matrix_1 = torch.zeros([b_1, h_1, w_1])
             sim_matrix_4 = torch.zeros([b_1, h_4, w_4])
-            sim_matrix_zeros = torch.ones([b_1, h_1, w_1] ,requires_grad=True)
+            sim_matrix_zeros = torch.zeros([b_1, h_1, w_1] ,requires_grad=True)
             sim_matrix_one = torch.ones([b_1, h_4, w_4] ,requires_grad=True)
 
             for i in range(b_1):
