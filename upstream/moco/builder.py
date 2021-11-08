@@ -133,6 +133,8 @@ class MoCo(nn.Module):
         # f4.shape torch.Size([1, 2048, 16, 16])
 
         q = nn.functional.normalize(q, dim=1)
+        layer_query_1 = nn.functional.normalize(layer_query_1, dim=1)
+        layer_query_4 = nn.functional.normalize(layer_query_4, dim=1)
 
         # compute key features
         with torch.no_grad():  # no gradient to keys
@@ -143,9 +145,13 @@ class MoCo(nn.Module):
 
             k , layer_key_1, layer_key_4 = self.encoder_k(im_k)  # keys: NxC
             k = nn.functional.normalize(k, dim=1)
+            layer_key_1 = nn.functional.normalize(layer_key_1, dim=1)
+            layer_key_4 = nn.functional.normalize(layer_key_4, dim=1)
 
             # undo shuffle
             k = self._batch_unshuffle_ddp(k, idx_unshuffle)
+            layer_key_1 = self._batch_unshuffle_ddp(layer_key_1, idx_unshuffle)
+            layer_key_4 = self._batch_unshuffle_ddp(layer_key_4, idx_unshuffle)
 
         # compute logits
         # Einstein sum is more intuitive
