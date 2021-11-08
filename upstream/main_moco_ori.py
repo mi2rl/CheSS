@@ -24,7 +24,7 @@ import torchvision.models as models
 
 import moco.loader
 import moco.builder_ori
-
+from moco.loader import Custom_ImageFolder
 from moco.resnet_ori import resnet50
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
@@ -238,11 +238,7 @@ def main_worker(gpu, ngpus_per_node, args):
 
     '''
     need to modify
-    '''
-    normalize = transforms.Normalize(mean=[args.mean],
-                                     std=[args.std])
-    '''
-    using Albumentations augmentation
+    Albumentations
     '''
     if args.aug_plus:
         # MoCo v2's aug: similar to SimCLR https://arxiv.org/abs/2002.05709
@@ -258,14 +254,21 @@ def main_worker(gpu, ngpus_per_node, args):
         ]
     else:
         # MoCo v1's aug: the same as InstDisc https://arxiv.org/abs/1805.01978
-        augmentation = A.Compose([
+        transform_query = A.Compose([
+                    A.Resize(args.image_size, args.image_size),
+                    A.Normalize(mean=(args.mean), std=(args.std)),
+                    ToTensorV2(),
+                ])
+        transform_key = A.Compose([
                 A.Resize(args.image_size, args.image_size),
                 A.OneOf([
                     A.MedianBlur(blur_limit=3, p=0.1),
                     A.MotionBlur(p=0.2),
                     A.IAASharpen(p=0.2),
                     ], p=0.2),
-                A.ShiftScaleRotate(shift_limit=0.0625, scale_limit=0.2, rotate_limit=10, p=0.2),
+                A.ShiftScaleRotate(shift_limit=0.0625, 
+                                    scale_limit=0.2, 
+                                    rotate_limit=10, p=0.2),
                 A.OneOf([
                     A.OpticalDistortion(p=0.3),
                     ], p=0.2),
@@ -277,14 +280,14 @@ def main_worker(gpu, ngpus_per_node, args):
                     A.GaussNoise(p=0.2),
                     A.MultiplicativeNoise(p=0.2),
                     ], p=0.2),
-                A.HueSaturationValue(hue_shift_limit=0, sat_shift_limit=0, val_shift_limit=0.1, p=0.3),
+                A.HueSaturationValue(hue_shift_limit=0, sat_shift_limit=0, 
+                                    val_shift_limit=0.1, p=0.3),
                 A.Normalize(mean=(args.mean), std=(args.std)),
                 ToTensorV2(),
             ])
 
-    train_dataset = datasets.ImageFolder(
-        traindir,
-        moco.loader.TwoCropsTransform(transforms.Compose([transforms.Grayscale(), augmentation])))
+    train_dataset = Custom_ImageFolder(root=traindir, transform=transform_key , 
+                              target_transform=transform_query)
 
     if args.distributed:
         train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
