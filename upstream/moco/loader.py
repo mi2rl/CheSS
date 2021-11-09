@@ -77,8 +77,11 @@ def _preprocessing_png(path):
         img = cv2.imread(path)
         img = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
         img = img.astype(np.float32)
-        img /= 255.
+        img = _min_max_scaling(img)
         return img
+
+def _min_max_scaling(img):
+    return (img-np.min(img)) / (np.max(img)-np.min(img))
     
 def _preprocessing_npy(path):
         img = np.load(path)
@@ -155,10 +158,10 @@ class Custom_ImageFolder(data.Dataset):
         img = self.loader(path)
         img2 = self.loader(path)
         if self.target_transform is not None:
-            img_key = self.target_transform(image=img)['image']
+            img_query = self.target_transform(image=img)['image']
         if self.transform is not None:
-            img = self.transform(image=img2)['image']
-        return img_key, img, target
+            img_key = self.transform(image=img2)['image']
+        return img_query, img_key, target
 
     def __len__(self):
         return len(self.imgs)
