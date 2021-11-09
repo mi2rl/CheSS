@@ -235,7 +235,7 @@ def main_worker(gpu, ngpus_per_node, args):
     cudnn.benchmark = True
 
     # Data loading code
-    traindir = os.path.join(args.data, args.preprocess, args.bit, args.image_size)
+    traindir = os.path.join(args.data, args.preprocess, args.bit, str(args.image_size))
 
     '''
     need to modify
@@ -255,38 +255,36 @@ def main_worker(gpu, ngpus_per_node, args):
         ]
     else:
         transform_query = A.Compose([
-                    A.Resize(args.image_size, args.image_size),
-                    A.Normalize(mean=(args.mean), std=(args.std)),
-                    ToTensorV2(),
-                ])
+            A.Resize(512, 512),
+            A.Normalize(mean=(args.mean), std=(args.std)),
+            ToTensorV2(),
+        ])
         transform_key = A.Compose([
-                A.Resize(args.image_size, args.image_size),
+                A.Resize(512, 512),
                 A.OneOf([
                     A.MedianBlur(blur_limit=3, p=0.1),
                     A.MotionBlur(p=0.2),
-                    A.IAASharpen(p=0.2),
+                    A.Sharpen(alpha=(0.01, 0.2), lightness=(0.5, 1.0), always_apply=False, p=0.2),
                     ], p=0.2),
+                A.RandomBrightnessContrast(brightness_limit=(-0.1, 0.1), 
+                contrast_limit=(-0.2, 0.1), p=0.6),
+                A.OneOf([
+                    A.GaussNoise(var_limit = 0.005, p=0.2),
+                    A.MultiplicativeNoise(p=0.2),
+                    ], p=0.2),
+                A.HueSaturationValue(hue_shift_limit=0, sat_shift_limit=0, 
+                                    val_shift_limit=0.1, p=0.3),
                 A.ShiftScaleRotate(shift_limit=0.0625, 
                                     scale_limit=0.2, 
                                     rotate_limit=10, p=0.2),
                 A.OneOf([
                     A.OpticalDistortion(p=0.3),
                     ], p=0.2),
-                A.OneOf([
-                    A.CLAHE(clip_limit=4.0),
-                    A.Equalize(),
-                    ], p=0.2),
-                A.OneOf([
-                    A.GaussNoise(p=0.2),
-                    A.MultiplicativeNoise(p=0.2),
-                    ], p=0.2),
-                A.HueSaturationValue(hue_shift_limit=0, sat_shift_limit=0, 
-                                    val_shift_limit=0.1, p=0.3),
                 A.Normalize(mean=(args.mean), std=(args.std)),
                 ToTensorV2(),
             ])
 
-    train_dataset = Custom_ImageFolder(root=traindir, transform=transform_key , 
+    train_dataset = Custom_ImageFolder(root=traindir, transform=transform_key, 
                               target_transform=transform_query)
 
     if args.distributed:
