@@ -98,6 +98,7 @@ parser.add_argument('--cos', action='store_true',
                     help='use cosine lr schedule')
                     
 ## MI2RLNet v2
+parser.add_argument('--save_iter', default=25000, type=int)
 parser.add_argument('--lambda_1', default=1.0, type=float)
 parser.add_argument('--lambda_2', default=1.0, type=float)
 parser.add_argument('--lambda_3', default=1.0, type=float)
@@ -360,6 +361,14 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
 
         if i % args.print_freq == 0:
             progress.display(i)
+
+        if i!=0 and (i % args.save_iter) ==0 :
+            save_checkpoint({
+                'epoch': epoch + 1,
+                'arch': args.arch,
+                'state_dict': model.state_dict(),
+                'optimizer' : optimizer.state_dict(),
+            }, is_best=False, filename='iter_{}_checkpoint_{:04d}.pth.tar'.format(i, epoch))
 
 
 def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):

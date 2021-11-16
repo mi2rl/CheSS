@@ -98,6 +98,7 @@ parser.add_argument('--cos', action='store_true',
                     help='use cosine lr schedule')
                     
 ## MI2RLNet v2
+parser.add_argument('--save_iter', default=25000, type=int)
 parser.add_argument('--epsilon', default=1.0, type=float)
 parser.add_argument('--lambda_1', default=1.0, type=float)
 parser.add_argument('--lambda_2', default=1.0, type=float)
@@ -255,12 +256,12 @@ def main_worker(gpu, ngpus_per_node, args):
         ]
     else:
         transform_query = A.Compose([
-            A.Resize(512, 512),
+            A.Resize(args.image_size, args.image_size),
             A.Normalize(mean=(args.mean), std=(args.std)),
             ToTensorV2(),
         ])
         transform_key = A.Compose([
-                A.Resize(512, 512),
+                A.Resize(args.image_size, args.image_size),
                 A.OneOf([
                     A.MedianBlur(blur_limit=3, p=0.1),
                     A.MotionBlur(p=0.2),
@@ -349,7 +350,7 @@ def train(train_loader, model, criterion, cos_sim ,criterion_L1, optimizer, epoc
         _, c_4, h_4, w_4 = lk_1.shape
         sim_matrix_1 = torch.zeros([b_1, h_1, w_1])
         sim_matrix_4 = torch.zeros([b_1, h_4, w_4])
-        sim_matrix_zeros = torch.zeros([b_1, h_1, w_1] ,requires_grad=True) * args.epsilon
+        sim_matrix_zeros = torch.zeros([b_1, h_1, w_1] ,requires_grad=True) + args.epsilon
         sim_matrix_one = torch.ones([b_1, h_4, w_4] ,requires_grad=True)
 
         for i in range(b_1):
@@ -381,6 +382,14 @@ def train(train_loader, model, criterion, cos_sim ,criterion_L1, optimizer, epoc
 
         if i % args.print_freq == 0:
             progress.display(i)
+
+        if i!=0 and (i % args.save_iter) ==0 :
+            save_checkpoint({
+                'epoch': epoch + 1,
+                'arch': args.arch,
+                'state_dict': model.state_dict(),
+                'optimizer' : optimizer.state_dict(),
+            }, is_best=False, filename='iter_{}_checkpoint_{:04d}.pth.tar'.format(i, epoch))
 
 
 def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
