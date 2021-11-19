@@ -33,10 +33,7 @@ parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
 parser.add_argument('data', metavar='DIR',
                     help='path to dataset')
 parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet50',
-                    choices=model_names,
-                    help='model architecture: ' +
-                        ' | '.join(model_names) +
-                        ' (default: resnet50)')
+                    help='model architecture:')
 parser.add_argument('-j', '--workers', default=32, type=int, metavar='N',
                     help='number of data loading workers (default: 32)')
 parser.add_argument('--epochs', default=200, type=int, metavar='N',
@@ -171,12 +168,13 @@ def main_worker(gpu, ngpus_per_node, args):
     '''
     our model add
     '''
-    base_encoder = resnet50
-    model = moco.builder.MoCo(
-        base_encoder,
-        args.moco_dim, args.moco_k, 
-        args.moco_m, args.moco_t, args.mlp)
-    print(model)
+    if args.arch == 'resnet50':
+        base_encoder = resnet50
+        model = moco.builder.MoCo(
+            base_encoder,
+            args.moco_dim, args.moco_k, 
+            args.moco_m, args.moco_t, args.mlp)
+        print(model)
 
     if args.distributed:
         # For multiprocessing distributed, DistributedDataParallel constructor
@@ -237,7 +235,7 @@ def main_worker(gpu, ngpus_per_node, args):
 
     # Data loading code
     traindir = os.path.join(args.data, args.preprocess, args.bit, str(args.image_size))
-
+    print("[*] traindir :" , traindir)
     '''
     need to modify
     Albumentations
@@ -312,7 +310,7 @@ def main_worker(gpu, ngpus_per_node, args):
                 'arch': args.arch,
                 'state_dict': model.state_dict(),
                 'optimizer' : optimizer.state_dict(),
-            }, is_best=False, filename='checkpoint_{:04d}.pth.tar'.format(epoch))
+            }, is_best=False, filename='checkpoint/checkpoint_{:04d}.pth.tar'.format(epoch))
 
 
 def train(train_loader, model, criterion, cos_sim ,criterion_L1, optimizer, epoch, args):
@@ -347,11 +345,11 @@ def train(train_loader, model, criterion, cos_sim ,criterion_L1, optimizer, epoc
         our loss source code
         '''
         b_1, c_1, h_1, w_1 = lq_1.shape
-        _, c_4, h_4, w_4 = lk_1.shape
-        sim_matrix_1 = torch.zeros([b_1, h_1, w_1])
-        sim_matrix_4 = torch.zeros([b_1, h_4, w_4])
-        sim_matrix_zeros = torch.zeros([b_1, h_1, w_1] ,requires_grad=True) + args.epsilon
-        sim_matrix_one = torch.ones([b_1, h_4, w_4] ,requires_grad=True)
+        _, c_4, h_4, w_4 = lq_4.shape
+        sim_matrix_1 = torch.zeros([b_1, h_1, w_1]).cuda(args.gpu, non_blocking=True)
+        sim_matrix_4 = torch.zeros([b_1, h_4, w_4]).cuda(args.gpu, non_blocking=True)
+        sim_matrix_zeros = torch.zeros([b_1, h_1, w_1] ,requires_grad=True).cuda(args.gpu, non_blocking=True) + args.epsilon
+        sim_matrix_one = torch.ones([b_1, h_4, w_4] ,requires_grad=True).cuda(args.gpu, non_blocking=True)
 
         for i in range(b_1):
             sim_matrix_1[i] = cos_sim(lq_1[i] ,lk_1[i])

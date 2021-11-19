@@ -183,15 +183,15 @@ class ResNet(nn.Module):
         x = self.relu(x)
         x = self.maxpool(x)
         
-        x = self.layer1(x)
-        x1 = x.clone()
+        x1 = self.layer1(x)
+        # x1 = x.clone()
 
-        x = self.layer2(x)
+        x = self.layer2(x1)
         x = self.layer3(x)
-        x = self.layer4(x)
-        x4 = x.clone() # 1 , 2048 , 16 , 16
+        x4 = self.layer4(x)
+        # x4 = x.clone() # 1 , 2048 , 16 , 16
 
-        x = self.avgpool(x)
+        x = self.avgpool(x4)
         x = torch.flatten(x, 1)
         x = self.fc(x)
 

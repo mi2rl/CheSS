@@ -5,6 +5,8 @@ import torch.utils.data as data
 import os
 import os.path
 import cv2
+import tqdm 
+import numpy as np
 
 IMG_EXTENSIONS = [
     '.jpg', '.JPG', '.jpeg', '.JPEG',
@@ -51,7 +53,7 @@ def find_classes(dir):
 def make_dataset(dir, class_to_idx):
     images = []
     dir = os.path.expanduser(dir)
-    for target in sorted(os.listdir(dir)):
+    for target in tqdm.tqdm(sorted(os.listdir(dir))):
         d = os.path.join(dir, target)
         if not os.path.isdir(d):
             continue
@@ -164,7 +166,7 @@ class Custom_ImageFolder(data.Dataset):
             img_query = self.target_transform(image=img)['image'] # no aug
         if self.transform is not None:
             img_key = self.transform(image=img2)['image'] # positive aug
-        return img_query, img_key, target
+        return [img_query, img_key], target
 
     def __len__(self):
         return len(self.imgs)
