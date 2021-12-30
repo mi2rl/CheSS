@@ -89,20 +89,20 @@ parser.add_argument('--moco-t', default=0.07, type=float,
 # options for moco v2
 parser.add_argument('--mlp', action='store_true',
                     help='use mlp head')
-parser.add_argument('--aug-plus', action='store_true',
+parser.add_argument('--aug_easy', action='store_true',
                     help='use moco v2 data augmentation')
 parser.add_argument('--cos', action='store_true',
                     help='use cosine lr schedule')
                     
 ## MI2RLNet v2
-parser.add_argument('--save_iter', default=25000, type=int)
-parser.add_argument('--epsilon', default=1.0, type=float)
+parser.add_argument('--save_iter', default=10000, type=int)
+parser.add_argument('--epsilon', default=0.3, type=float)
 parser.add_argument('--lambda_1', default=1.0, type=float)
 parser.add_argument('--lambda_2', default=1.0, type=float)
 parser.add_argument('--lambda_3', default=1.0, type=float)
 parser.add_argument('--image_size', default=512, type=int)
-parser.add_argument('--mean', default=0.2, type=float)
-parser.add_argument('--std', default=0.4, type=float)
+parser.add_argument('--mean', default=0.658, type=float)
+parser.add_argument('--std', default=0.221, type=float)
 parser.add_argument('--bit', default='png', type=str)
 parser.add_argument('--preprocess', default='clipped', type=str)
 
@@ -240,51 +240,61 @@ def main_worker(gpu, ngpus_per_node, args):
     need to modify
     Albumentations
     '''
-    if args.aug_plus:
+    if args.aug_easy:
         # MoCo v2's aug: similar to SimCLR https://arxiv.org/abs/2002.05709
-        augmentation = [
-            transforms.RandomResizedCrop(args.image_size, scale=(0.2, 1.)),
-            transforms.RandomApply([
-            ], p=0.8),
-            transforms.RandomGrayscale(p=0.2),
-            transforms.RandomApply([moco.loader.GaussianBlur([.1, 2.])], p=0.5),
-            transforms.RandomHorizontalFlip(),
-            transforms.ToTensor(),
-            normalize
-        ]
+        transform = A.Compose([
+                    A.Resize(args.image_size, args.image_size),
+                    # A.OneOf([
+                    #     A.MedianBlur(blur_limit=3, p=0.1),
+                    #     A.MotionBlur(p=0.2),
+                    #     A.Sharpen(alpha=(0.01, 0.2), lightness=(0.5, 1.0), always_apply=False, p=0.2),
+                    #     ], p=0.2),
+                    # A.RandomBrightnessContrast(brightness_limit=(-0.1, 0.1), 
+                    # contrast_limit=(-0.2, 0.1), p=0.6),
+                    A.OneOf([
+                        A.GaussNoise(var_limit = 0.005, p=0.2),
+                        A.MultiplicativeNoise(p=0.2),
+                        ], p=0.2),
+                    # A.HueSaturationValue(hue_shift_limit=0, sat_shift_limit=0, 
+                    #                     val_shift_limit=0.1, p=0.3),
+                    A.ShiftScaleRotate(shift_limit=0.0625, 
+                                        scale_limit=0.2, 
+                                        rotate_limit=10, p=0.2),
+                    # A.OneOf([
+                    #     A.OpticalDistortion(p=0.3),
+                    #     ], p=0.2),
+                    A.Normalize(mean=(args.mean), std=(args.std)),
+                    ToTensorV2(),
+                ])
     else:
-        transform_query = A.Compose([
-            A.Resize(args.image_size, args.image_size),
-            A.Normalize(mean=(args.mean), std=(args.std)),
-            ToTensorV2(),
-        ])
-        transform_key = A.Compose([
-                A.Resize(args.image_size, args.image_size),
-                A.OneOf([
-                    A.MedianBlur(blur_limit=3, p=0.1),
-                    A.MotionBlur(p=0.2),
-                    A.Sharpen(alpha=(0.01, 0.2), lightness=(0.5, 1.0), always_apply=False, p=0.2),
-                    ], p=0.2),
-                A.RandomBrightnessContrast(brightness_limit=(-0.1, 0.1), 
-                contrast_limit=(-0.2, 0.1), p=0.6),
-                A.OneOf([
-                    A.GaussNoise(var_limit = 0.005, p=0.2),
-                    A.MultiplicativeNoise(p=0.2),
-                    ], p=0.2),
-                A.HueSaturationValue(hue_shift_limit=0, sat_shift_limit=0, 
-                                    val_shift_limit=0.1, p=0.3),
-                A.ShiftScaleRotate(shift_limit=0.0625, 
-                                    scale_limit=0.2, 
-                                    rotate_limit=10, p=0.2),
-                A.OneOf([
-                    A.OpticalDistortion(p=0.3),
-                    ], p=0.2),
-                A.Normalize(mean=(args.mean), std=(args.std)),
-                ToTensorV2(),
-            ])
+        transform = A.Compose([
+                    A.Resize(args.image_size, args.image_size),
+                    A.OneOf([
+                        A.MedianBlur(blur_limit=3, p=0.1),
+                        A.MotionBlur(p=0.2),
+                        A.Sharpen(alpha=(0.01, 0.2), lightness=(0.5, 1.0), 
+                        always_apply=False, p=0.2),
+                        ], p=0.2),
+                    A.RandomBrightnessContrast(brightness_limit=(-0.1, 0.1), 
+                    contrast_limit=(-0.2, 0.1), p=0.6),
+                    A.OneOf([
+                        A.GaussNoise(var_limit = 0.005, p=0.2),
+                        A.MultiplicativeNoise(p=0.2),
+                        ], p=0.2),
+                    A.HueSaturationValue(hue_shift_limit=0, sat_shift_limit=0, 
+                                        val_shift_limit=0.1, p=0.3),
+                    A.ShiftScaleRotate(shift_limit=0.0625, 
+                                        scale_limit=0.2, 
+                                        rotate_limit=10, p=0.2),
+                    A.OneOf([
+                        A.OpticalDistortion(p=0.3),
+                        ], p=0.2),
+                    A.Normalize(mean=(args.mean), std=(args.std)),
+                    ToTensorV2(),
+                ])
 
-    train_dataset = Custom_ImageFolder(root=traindir, transform=transform_key, 
-                              target_transform=transform_query)
+    train_dataset = Custom_ImageFolder(root=traindir, transform=transform, 
+                              target_transform=transform)
 
     if args.distributed:
         train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
@@ -301,7 +311,7 @@ def main_worker(gpu, ngpus_per_node, args):
         adjust_learning_rate(optimizer, epoch, args)
 
         # train for one epoch
-        train(train_loader, model, criterion, cos_sim ,criterion_L1, optimizer, epoch, args)
+        train(train_loader, model, criterion, cos_sim ,criterion_L1, optimizer, epoch, ngpus_per_node , args)
 
         if not args.multiprocessing_distributed or (args.multiprocessing_distributed
                 and args.rank % ngpus_per_node == 0):
@@ -310,18 +320,21 @@ def main_worker(gpu, ngpus_per_node, args):
                 'arch': args.arch,
                 'state_dict': model.state_dict(),
                 'optimizer' : optimizer.state_dict(),
-            }, is_best=False, filename='checkpoint/checkpoint_{:04d}.pth.tar'.format(epoch))
+            }, is_best=False, filename='./checkpoint/checkpoint_{:04d}.pth.tar'.format(epoch))
 
 
-def train(train_loader, model, criterion, cos_sim ,criterion_L1, optimizer, epoch, args):
+def train(train_loader, model, criterion, cos_sim ,criterion_L1, optimizer, epoch, ngpus_per_node,  args):
     batch_time = AverageMeter('Time', ':6.3f')
     data_time = AverageMeter('Data', ':6.3f')
     losses = AverageMeter('Loss', ':.4e')
+    all_losses = AverageMeter('All Loss', ':.4e')
+    losses_l1 = AverageMeter('Layer1 Loss', ':.4e')
+    losses_l4 = AverageMeter('Layer4 Loss', ':.4e')
     top1 = AverageMeter('Acc@1', ':6.2f')
     top5 = AverageMeter('Acc@5', ':6.2f')
     progress = ProgressMeter(
         len(train_loader),
-        [batch_time, data_time, losses, top1, top5],
+        [batch_time, data_time, losses, all_losses, losses_l1, losses_l4, top1, top5],
         prefix="Epoch: [{}]".format(epoch))
 
     # switch to train mode
@@ -348,13 +361,15 @@ def train(train_loader, model, criterion, cos_sim ,criterion_L1, optimizer, epoc
         _, c_4, h_4, w_4 = lq_4.shape
         sim_matrix_1 = torch.zeros([b_1, h_1, w_1]).cuda(args.gpu, non_blocking=True)
         sim_matrix_4 = torch.zeros([b_1, h_4, w_4]).cuda(args.gpu, non_blocking=True)
-        sim_matrix_zeros = torch.zeros([b_1, h_1, w_1] ,requires_grad=True).cuda(args.gpu, non_blocking=True) + args.epsilon
-        sim_matrix_one = torch.ones([b_1, h_4, w_4] ,requires_grad=True).cuda(args.gpu, non_blocking=True)
-
-        for i in range(b_1):
-            sim_matrix_1[i] = cos_sim(lq_1[i] ,lk_1[i])
-            sim_matrix_4[i] = cos_sim(lq_4[i] ,lk_4[i])
-
+        sim_matrix_zeros = torch.zeros([b_1, h_1, w_1] ,
+            requires_grad=True).cuda(args.gpu, non_blocking=True) + args.epsilon
+        sim_matrix_one = torch.ones([b_1, h_4, w_4] ,
+            requires_grad=True).cuda(args.gpu, non_blocking=True)
+        
+        for k in range(b_1):
+            sim_matrix_1[k] = cos_sim(lq_1[k] ,lk_1[k])
+            sim_matrix_4[k] = cos_sim(lq_4[k] ,lk_4[k])
+        
         loss_1 = criterion_L1(sim_matrix_zeros, sim_matrix_1)
         loss_4 = criterion_L1(sim_matrix_one, sim_matrix_4)
 
@@ -362,6 +377,8 @@ def train(train_loader, model, criterion, cos_sim ,criterion_L1, optimizer, epoc
         # measure accuracy and record loss
         acc1, acc5 = accuracy(output, target, topk=(1, 5))
         losses.update(loss.item(), images[0].size(0))
+        losses_l1.update(loss_1.item(), images[0].size(0))
+        losses_l4.update(loss_4.item(), images[0].size(0))
 
         top1.update(acc1[0], images[0].size(0))
         top5.update(acc5[0], images[0].size(0))
@@ -369,7 +386,8 @@ def train(train_loader, model, criterion, cos_sim ,criterion_L1, optimizer, epoc
         # compute gradient and do SGD step
 
         overall_loss = args.lambda_1 * loss + args.lambda_2 * loss_1 + args.lambda_3 * loss_4
-        
+        all_losses.update(overall_loss.item(), images[0].size(0))
+
         optimizer.zero_grad()
         overall_loss.backward()
         optimizer.step()
@@ -381,14 +399,14 @@ def train(train_loader, model, criterion, cos_sim ,criterion_L1, optimizer, epoc
         if i % args.print_freq == 0:
             progress.display(i)
 
-        if i!=0 and (i % args.save_iter) ==0 :
+        if (not args.multiprocessing_distributed or (args.multiprocessing_distributed
+                and args.rank % ngpus_per_node == 0) ) and i!=0 and (i % args.save_iter) ==0 :
             save_checkpoint({
                 'epoch': epoch + 1,
                 'arch': args.arch,
                 'state_dict': model.state_dict(),
                 'optimizer' : optimizer.state_dict(),
-            }, is_best=False, filename='iter_{}_checkpoint_{:04d}.pth.tar'.format(i, epoch))
-
+            }, is_best=False, filename='iter/iter_{}_checkpoint_{:04d}.pth.tar'.format(i, epoch))
 
 def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
     torch.save(state, filename)

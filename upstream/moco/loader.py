@@ -159,13 +159,19 @@ class Custom_ImageFolder(data.Dataset):
         Returns:
             tuple: (image, target) where target is class_index of the target class.
         """
-        path, target = self.imgs[index]
-        img = self.loader(path)
-        img2 = self.loader(path)
-        if self.target_transform is not None:
-            img_query = self.target_transform(image=img)['image'] # no aug
-        if self.transform is not None:
-            img_key = self.transform(image=img2)['image'] # positive aug
+        while True:
+            path, target = self.imgs[index]
+            try:
+                img = self.loader(path)
+                img2 = self.loader(path)
+                if self.target_transform is not None:
+                    img_query = self.target_transform(image=img)['image'] # no aug
+                if self.transform is not None:
+                    img_key = self.transform(image=img2)['image'] # positive aug
+                return [img_query, img_key], target
+            except:
+                print("[*] error image", path)
+                index = random.randint(0,len(self.imgs)-1)
         return [img_query, img_key], target
 
     def __len__(self):
