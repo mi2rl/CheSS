@@ -33,10 +33,7 @@ parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
 parser.add_argument('data', metavar='DIR',
                     help='path to dataset')
 parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet50',
-                    choices=model_names,
-                    help='model architecture: ' +
-                        ' | '.join(model_names) +
-                        ' (default: resnet50)')
+                    help='model architecture:')
 parser.add_argument('-j', '--workers', default=32, type=int, metavar='N',
                     help='number of data loading workers (default: 32)')
 parser.add_argument('--epochs', default=200, type=int, metavar='N',
@@ -57,7 +54,7 @@ parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
 parser.add_argument('--wd', '--weight-decay', default=1e-4, type=float,
                     metavar='W', help='weight decay (default: 1e-4)',
                     dest='weight_decay')
-parser.add_argument('-p', '--print-freq', default=10, type=int,
+parser.add_argument('-p', '--print-freq', default=1, type=int,
                     metavar='N', help='print frequency (default: 10)')
 parser.add_argument('--resume', default='', type=str, metavar='PATH',
                     help='path to latest checkpoint (default: none)')
@@ -92,13 +89,14 @@ parser.add_argument('--moco-t', default=0.07, type=float,
 # options for moco v2
 parser.add_argument('--mlp', action='store_true',
                     help='use mlp head')
-parser.add_argument('--aug-plus', action='store_true',
+parser.add_argument('--aug_easy', action='store_true',
                     help='use moco v2 data augmentation')
 parser.add_argument('--cos', action='store_true',
                     help='use cosine lr schedule')
                     
 ## MI2RLNet v2
-parser.add_argument('--save_iter', default=25000, type=int)
+parser.add_argument('--save_iter', default=10000, type=int)
+parser.add_argument('--epsilon', default=0.3, type=float)
 parser.add_argument('--lambda_1', default=1.0, type=float)
 parser.add_argument('--lambda_2', default=1.0, type=float)
 parser.add_argument('--lambda_3', default=1.0, type=float)
@@ -107,8 +105,6 @@ parser.add_argument('--mean', default=0.658, type=float)
 parser.add_argument('--std', default=0.221, type=float)
 parser.add_argument('--bit', default='png', type=str)
 parser.add_argument('--preprocess', default='clipped', type=str)
-parser.add_argument('--vanilla_moco_loss', default=None, type=bool)
-
 
 
 def main():
@@ -173,7 +169,7 @@ def main_worker(gpu, ngpus_per_node, args):
     our model add
     '''
     base_encoder = resnet50
-    model = moco.builder.MoCo(
+    model = moco.builder_ori.MoCo(
         base_encoder,
         args.moco_dim, args.moco_k, 
         args.moco_m, args.moco_t, args.mlp)
@@ -236,58 +232,67 @@ def main_worker(gpu, ngpus_per_node, args):
 
     # Data loading code
     traindir = os.path.join(args.data, args.preprocess, args.bit, str(args.image_size))
-
+    
     '''
     Albumentations
     Todo list
     1. medAug
     '''
-    if args.aug_plus:
+    if args.aug_easy:
         # MoCo v2's aug: similar to SimCLR https://arxiv.org/abs/2002.05709
-        augmentation = [
-            transforms.RandomResizedCrop(args.image_size, scale=(0.2, 1.)),
-            transforms.RandomApply([
-            ], p=0.8),
-            transforms.RandomGrayscale(p=0.2),
-            transforms.RandomApply([moco.loader.GaussianBlur([.1, 2.])], p=0.5),
-            transforms.RandomHorizontalFlip(),
-            transforms.ToTensor(),
-            normalize
-        ]
+        transform = A.Compose([
+                    A.Resize(args.image_size, args.image_size),
+                    # A.OneOf([
+                    #     A.MedianBlur(blur_limit=3, p=0.1),
+                    #     A.MotionBlur(p=0.2),
+                    #     A.Sharpen(alpha=(0.01, 0.2), lightness=(0.5, 1.0), always_apply=False, p=0.2),
+                    #     ], p=0.2),
+                    # A.RandomBrightnessContrast(brightness_limit=(-0.1, 0.1), 
+                    # contrast_limit=(-0.2, 0.1), p=0.6),
+                    A.OneOf([
+                        A.GaussNoise(var_limit = 0.005, p=0.2),
+                        A.MultiplicativeNoise(p=0.2),
+                        ], p=0.2),
+                    # A.HueSaturationValue(hue_shift_limit=0, sat_shift_limit=0, 
+                    #                     val_shift_limit=0.1, p=0.3),
+                    A.ShiftScaleRotate(shift_limit=0.0625, 
+                                        scale_limit=0.2, 
+                                        rotate_limit=10, p=0.2),
+                    # A.OneOf([
+                    #     A.OpticalDistortion(p=0.3),
+                    #     ], p=0.2),
+                    A.Normalize(mean=(args.mean), std=(args.std)),
+                    ToTensorV2(),
+                ])
     else:
         # MoCo v1's aug: the same as InstDisc https://arxiv.org/abs/1805.01978
-        transform_query = A.Compose([
-            A.Resize(512, 512),
-            A.Normalize(mean=(args.mean), std=(args.std)),
-            ToTensorV2(),
-        ])
-        transform_key = A.Compose([
-                A.Resize(512, 512),
-                A.OneOf([
-                    A.MedianBlur(blur_limit=3, p=0.1),
-                    A.MotionBlur(p=0.2),
-                    A.Sharpen(alpha=(0.01, 0.2), lightness=(0.5, 1.0), always_apply=False, p=0.2),
-                    ], p=0.2),
-                A.RandomBrightnessContrast(brightness_limit=(-0.1, 0.1), 
-                contrast_limit=(-0.2, 0.1), p=0.6),
-                A.OneOf([
-                    A.GaussNoise(var_limit = 0.005, p=0.2),
-                    A.MultiplicativeNoise(p=0.2),
-                    ], p=0.2),
-                A.HueSaturationValue(hue_shift_limit=0, sat_shift_limit=0, 
-                                    val_shift_limit=0.1, p=0.3),
-                A.ShiftScaleRotate(shift_limit=0.0625, 
-                                    scale_limit=0.2, 
-                                    rotate_limit=10, p=0.2),
-                A.OneOf([
-                    A.OpticalDistortion(p=0.3),
-                    ], p=0.2),
-                A.Normalize(mean=(args.mean), std=(args.std)),
-                ToTensorV2(),
-            ])
+        transform = A.Compose([
+                    A.Resize(args.image_size, args.image_size),
+                    A.OneOf([
+                        A.MedianBlur(blur_limit=3, p=0.1),
+                        A.MotionBlur(p=0.2),
+                        A.Sharpen(alpha=(0.01, 0.2), lightness=(0.5, 1.0), always_apply=False, p=0.2),
+                        ], p=0.2),
+                    A.RandomBrightnessContrast(brightness_limit=(-0.1, 0.1), 
+                    contrast_limit=(-0.2, 0.1), p=0.6),
+                    A.OneOf([
+                        A.GaussNoise(var_limit = 0.005, p=0.2),
+                        A.MultiplicativeNoise(p=0.2),
+                        ], p=0.2),
+                    A.HueSaturationValue(hue_shift_limit=0, sat_shift_limit=0, 
+                                        val_shift_limit=0.1, p=0.3),
+                    A.ShiftScaleRotate(shift_limit=0.0625, 
+                                        scale_limit=0.2, 
+                                        rotate_limit=10, p=0.2),
+                    A.OneOf([
+                        A.OpticalDistortion(p=0.3),
+                        ], p=0.2),
+                    A.Normalize(mean=(args.mean), std=(args.std)),
+                    ToTensorV2(),
+                ])
 
-    train_dataset = Custom_ImageFolder(root=traindir, transform=transform_key , 
-                              target_transform=transform_query)
+    train_dataset = Custom_ImageFolder(root=traindir, transform=transform, 
+                              target_transform=transform)
 
     if args.distributed:
         train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
@@ -304,7 +309,7 @@ def main_worker(gpu, ngpus_per_node, args):
         adjust_learning_rate(optimizer, epoch, args)
 
         # train for one epoch
-        train(train_loader, model, criterion, optimizer, epoch, args)
+        train(train_loader, model, criterion, optimizer, epoch, ngpus_per_node, args)
 
         if not args.multiprocessing_distributed or (args.multiprocessing_distributed
                 and args.rank % ngpus_per_node == 0):
@@ -313,10 +318,10 @@ def main_worker(gpu, ngpus_per_node, args):
                 'arch': args.arch,
                 'state_dict': model.state_dict(),
                 'optimizer' : optimizer.state_dict(),
-            }, is_best=False, filename='checkpoint_{:04d}.pth.tar'.format(epoch))
+            }, is_best=False, filename='./checkpoint/checkpoint_{:04d}.pth.tar'.format(epoch))
 
 
-def train(train_loader, model, criterion, optimizer, epoch, args):
+def train(train_loader, model, criterion, optimizer, epoch, ngpus_per_node, args):
     batch_time = AverageMeter('Time', ':6.3f')
     data_time = AverageMeter('Data', ':6.3f')
     losses = AverageMeter('Loss', ':.4e')
@@ -362,13 +367,15 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
         if i % args.print_freq == 0:
             progress.display(i)
 
-        if i!=0 and (i % args.save_iter) ==0 :
+        if (not args.multiprocessing_distributed or (args.multiprocessing_distributed
+                and args.rank % ngpus_per_node == 0) ) and i!=0 and (i % args.save_iter) ==0 :
             save_checkpoint({
                 'epoch': epoch + 1,
                 'arch': args.arch,
                 'state_dict': model.state_dict(),
                 'optimizer' : optimizer.state_dict(),
-            }, is_best=False, filename='iter_{}_checkpoint_{:04d}.pth.tar'.format(i, epoch))
+            }, is_best=False, filename='./iter/iter_{}_checkpoint_{:04d}.pth.tar'.format(i, epoch))
+            
 
 
 def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):

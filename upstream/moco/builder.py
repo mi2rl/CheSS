@@ -127,7 +127,6 @@ class MoCo(nn.Module):
 
         # compute query features
         q, layer_query_1, layer_query_4 = self.encoder_q(im_q)  # queries: NxC
-        
         q = nn.functional.normalize(q, dim=1)
         layer_query_1 = nn.functional.normalize(layer_query_1, dim=1)
         layer_query_4 = nn.functional.normalize(layer_query_4, dim=1)
