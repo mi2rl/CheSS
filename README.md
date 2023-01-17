@@ -1,6 +1,6 @@
 # CheSS: Chest X-ray pre-trained model via Self-Supervised contrastive learning
 
-This is a PyTorch implementation of the Journal of Digital Imaging (JDIM) paper: ~
+This is a PyTorch implementation of the Journal of Digital Imaging (JDIM) paper: The paper will be released soon.
 
 <img width="1275" alt="mi2rl" src="https://user-images.githubusercontent.com/108312461/212851640-3e52332d-5346-4c1a-ab32-e337854afe71.png">
 
@@ -8,7 +8,8 @@ This is a PyTorch implementation of the Journal of Digital Imaging (JDIM) paper:
 
 Requirements
 
-Install Python 3.6.9.
+Install Python 3.6.9. 
+
 Install Pytorch 1.6.0.
 
 Directory Architecture
@@ -28,5 +29,6 @@ Directory Architecture
 https://drive.google.com/drive/folders/17IiClqWW2YHUzPtKmgL4dR6RIKLoYNxK?usp=sharing
 
 ## Contact
-page: mi2rl.co/
+page: mi2rl.co 
+
 email: kjcho.amc@gmail.com
