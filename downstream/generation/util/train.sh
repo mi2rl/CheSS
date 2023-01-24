@@ -1,1 +1,0 @@
-python train.py --batchSize=8 --use_vae --no_instance --label_dir=/workspace/changyong/02.MI2RLNet_V2/SPADE_data/mask --image_dir=/workspace/changyong/02.MI2RLNet_V2/SPADE_data/data --no_pairing_check --preprocess_mode=none --crop_size=512 --label_nc=2 --print_freq=10 --display_freq=500 --name=07.MoCo_EGDspectralinstance_noFeat --perceptual_channel=1 --no_ganFeat_loss
