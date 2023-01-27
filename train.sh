@@ -1,6 +1,3 @@
-
-
-
 ## model training
 python main_moco.py \
   -a resnet50 \
