@@ -1,32 +1,66 @@
 # CheSS: Chest X-ray pre-trained model via Self-Supervised contrastive learning
 
-This is a PyTorch implementation of the Chess: Journal of Digital Imaging (https://link.springer.com/article/10.1007/s10278-023-00782-4)
+This is a PyTorch implementation of the [CheSS paper](https://link.springer.com/article/10.1007/s10278-023-00782-4):
 
-<img width="1275" alt="mi2rl" src="https://user-images.githubusercontent.com/108312461/214324814-856f47ed-4c7b-471a-908a-ee1c2a279bf6.png">
+```
+@article{Cho2023,
+  doi = {10.1007/s10278-023-00782-4},
+  url = {https://doi.org/10.1007/s10278-023-00782-4},
+  year = {2023},
+  month = jan,
+  publisher = {Springer Science and Business Media {LLC}},
+  author = {Kyungjin Cho and Ki Duk Kim and Yujin Nam and Jiheon Jeong and Jeeyoung Kim and Changyong Choi and Soyoung Lee and Jun Soo Lee and Seoyeon Woo and Gil-Sun Hong and Joon Beom Seo and Namkug Kim},
+  title = {{CheSS}: Chest X-Ray Pre-trained Model via Self-supervised Contrastive Learning},
+  journal = {Journal of Digital Imaging}
+}
+```
 
-Requirements
-
-Install Python 3.6.9. 
-
-Install Pytorch 1.6.0.
-
-Directory Architecture
-
-|---------- main_lincls.py (for linear evaluatoin)
-
-|---------- main_moco_ori.py (for training)
-
-|---------- builder_ori.py (for moco builder)
-
-|---------- loader.py (for data loader)
-
-|---------- resenet_ori.py (for moco encoder)
+<img width="1275" alt="Figure" src="https://user-images.githubusercontent.com/108312461/215047851-77a46c0c-9392-4ad0-b71e-eef84fd6cf6f.png">
 
 
 ## Pretrained model weight
-https://drive.google.com/drive/folders/17IiClqWW2YHUzPtKmgL4dR6RIKLoYNxK?usp=sharing
+[Google Drive](https://drive.google.com/drive/folders/17IiClqWW2YHUzPtKmgL4dR6RIKLoYNxK?usp=sharing)
+
+## Usage
+
+```python
+model = resnet50(num_classes=1000)
+
+pretrained_model = "CheSS pretrained model path"
+if pretrained_model is not None:
+    if os.path.isfile(pretrained_model):
+        print("=> loading checkpoint '{}'".format(pretrained_model))
+        checkpoint = torch.load(pretrained_model, map_location="cpu")
+
+        # rename moco pre-trained keys
+        state_dict = checkpoint['state_dict']
+        for k in list(state_dict.keys()):
+            # retain only encoder_q up to before the embedding layer
+            if k.startswith('module.encoder_q') and not k.startswith('module.encoder_q.fc'):
+                # remove prefix
+                state_dict[k[len("module.encoder_q."):]] = state_dict[k]
+            # delete renamed or unused k
+            del state_dict[k]
+
+        msg = model.load_state_dict(state_dict, strict=False)
+        assert set(msg.missing_keys) == {"fc.weight", "fc.bias"}
+
+        print("=> loaded pre-trained model '{}'".format(pretrained_model))
+    else:
+        print("=> no checkpoint found at '{}'".format(pretrained_model))
+
+    ##freeze all layers but the last fc
+    for name, param in model.named_parameters():
+        if name not in ['fc.weight', 'fc.bias']:
+            param.requires_grad = False
+            
+    model.fc = nn.Linear(2048, num_class)
+
+```
 
 ## Contact
-Page: https://mi2rl.co 
 
+<img width="1275" alt="mi2rl" src="https://user-images.githubusercontent.com/108312461/212851640-3e52332d-5346-4c1a-ab32-e337854afe71.png">
+
+Page: https://mi2rl.co 
 Email: kjcho@amc.seoul.kr
