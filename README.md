@@ -15,13 +15,18 @@ This is a PyTorch implementation of the [CheSS paper](https://link.springer.com/
 }
 ```
 
+## Requirements
+
+```
+pip install -r requirements.txt
+```
+
 <img width="1275" alt="Figure" src="https://user-images.githubusercontent.com/108312461/215047851-77a46c0c-9392-4ad0-b71e-eef84fd6cf6f.png">
 
 
 ## Pretrained model weight
-[Google Drive](https://drive.google.com/drive/folders/17IiClqWW2YHUzPtKmgL4dR6RIKLoYNxK?usp=sharing)
+[Google Drive](https://drive.google.com/file/d/1C_Gis2qcZcA9X3l2NEHR1oS4Gn_bTxTe/view?usp=share_link)
 
-## Usage
 
 ```python
 model = resnet50(num_classes=1000)
@@ -58,9 +63,16 @@ if pretrained_model is not None:
 
 ```
 
+or you can use gdown in Python
+
+```python
+!gdown https://drive.google.com/uc?id=1C_Gis2qcZcA9X3l2NEHR1oS4Gn_bTxTe
+```
+
 ## Contact
 
 <img width="1275" alt="mi2rl" src="https://user-images.githubusercontent.com/108312461/212851640-3e52332d-5346-4c1a-ab32-e337854afe71.png">
 
 Page: https://mi2rl.co 
+
 Email: kjcho@amc.seoul.kr

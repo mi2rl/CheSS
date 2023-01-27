@@ -1,0 +1,12 @@
+tensorboardX
+opencv-python
+pillow
+scikit-learn
+simpleitk
+sklearn
+matplotlib
+numpy
+albumentations
+torchvision==0.6.0
+natsort
+gdown
