@@ -25,7 +25,7 @@ pip install -r requirements.txt
 
 
 ## Pretrained model weight
-[Google Drive](https://drive.google.com/file/d/1C_Gis2qcZcA9X3l2NEHR1oS4Gn_bTxTe/view?usp=share_link)
+[Google Drive](https://drive.google.com/uc?id=1IfiuQdKV7en9DFaB0NqNdsDkVbdyoVyD&export=download)
 
 
 ```python
@@ -66,7 +66,7 @@ if pretrained_model is not None:
 or you can use gdown in Python
 
 ```python
-!gdown https://drive.google.com/uc?id=1C_Gis2qcZcA9X3l2NEHR1oS4Gn_bTxTe
+!gdown https://drive.google.com/uc?id=1IfiuQdKV7en9DFaB0NqNdsDkVbdyoVyD
 ```
 
 ## Contact
